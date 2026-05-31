@@ -98,9 +98,11 @@ class EventRequestServiceImplTest {
     @Test
     void cancel_whenOwnRequest_thenSetsCanceledStatus() {
         User caller = User.builder().id(1L).build();
+        Event event = Event.builder().id(10L).build();
         EventRequest request = EventRequest.builder()
                 .id(100L)
                 .requester(caller)
+                .event(event)
                 .build();
         when(userRepository.findById(1L)).thenReturn(Optional.of(caller));
         when(eventRequestRepository.findById(100L)).thenReturn(Optional.of(request));
