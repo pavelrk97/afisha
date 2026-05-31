@@ -1,101 +1,76 @@
 # Explore-Me
 
-Платформа публикации и продвижения локальных событий: пользователи создают
-мероприятия, отправляют заявки на участие, подписываются на интересных авторов.
-Сервис статистики выделен отдельным приложением — копит просмотры через
-клиентскую обёртку и отдаёт агрегаты.
+Веб-приложение для поиска и публикации городских событий — концерты, выставки,
+встречи. Пользователи создают мероприятия, ищут интересное рядом, подают заявки
+на участие и подписываются на любимых организаторов.
+
+Внутри две связки сервисов: основное приложение `ewm-main-svc` со всей бизнес-логикой
+и отдельный микросервис `stats-server`, который считает просмотры событий через
+тонкий HTTP-клиент.
+
+[![Build](https://github.com/pavelrk97/java-explore-with-me/actions/workflows/build.yml/badge.svg)](https://github.com/pavelrk97/java-explore-with-me/actions)
+
+## Что сделано
+
+- Двухсервисная архитектура (`ewm-main-svc` + `stats-server`) с разделёнными БД и общим DTO-модулем
+- Spring Security + Keycloak: OAuth2 Resource Server, JWT с ролями `USER`/`ADMIN`
+- Асинхронная отправка статистики через `@Async` с собственным `ThreadPoolTaskExecutor` —
+  hot path не блокируется
+- Liquibase для версионирования схемы БД вместо `schema.sql`
+- springdoc-openapi: Swagger UI автогенерируется из контроллеров
+- Тесты: JUnit 5 + Mockito (сервисы), `@WebMvcTest` + spring-security-test (контроллеры),
+  Testcontainers (integration) — 37 тестов, 5 доменов покрыто
+- CI на GitHub Actions: Ubuntu + Java 21 Corretto + `mvn clean verify`
 
 ## Стек
 
-- **Java 21**, **Spring Boot 3.3.2** (Web, Data JPA, Validation, Actuator)
-- **PostgreSQL 16.1** (профиль `postgres`), **H2** для локальной разработки (`h2`)
-- **Maven** multi-module, **Lombok**
-- **Docker Compose** — 2 приложения + 2 БД с healthcheck'ами и условным запуском
-- **Checkstyle**, **SpotBugs**, **JaCoCo** — профили `check` и `coverage`
-
-## Архитектура
-
-```
-┌───────────────┐         ┌──────────────────┐
-│  Public API   │◄────────┤   ewm-main-svc   │
-│  /events,...  │         │     :8080        │      ┌──────────────────┐
-└───────────────┘         │                  │      │   stats-server   │
-┌───────────────┐         │  events          │─────►│      :9090       │
-│  Private API  │◄────────┤  users           │ HTTP │                  │
-│  /users/{id}  │         │  categories      │      │  EndpointHit     │
-└───────────────┘         │  compilations    │      │  ViewStats       │
-┌───────────────┐         │  requests        │      └────────┬─────────┘
-│   Admin API   │◄────────┤  subscriptions   │               │
-│   /admin/...  │         └────────┬─────────┘               │
-└───────────────┘                  ▼                          ▼
-                            ┌────────────┐            ┌────────────┐
-                            │   ewmdb    │            │   statdb   │
-                            │ Postgres   │            │ Postgres   │
-                            └────────────┘            └────────────┘
-```
-
-`ewm-main-svc` отправляет хит в `stats-server` на каждый запрос к Public API
-через тонкий HTTP-клиент `stat-client`. DTO-контракт лежит в общем модуле
-`stat-dto` и переиспользуется обеими сторонами.
-
-## Модули
-
-### `ewm-main-svc` (`:8080`)
-
-Основной сервис. REST API разделён на три уровня доступа по URL-префиксам:
-
-| Уровень | Префикс                                   | Назначение                    |
-|---------|-------------------------------------------|-------------------------------|
-| Public  | `/events`, `/categories`, `/compilations` | Открытый поиск и просмотр     |
-| Private | `/users/{userId}/...`                     | Операции от лица пользователя |
-| Admin   | `/admin/...`                              | Модерация, справочники        |
-
-Доменные пакеты: `event`, `user`, `category`, `compilation`, `location`,
-`request`, `subscription`. Глобальная обработка ошибок — `ErrorHandler` +
-типизированные исключения (`NotFoundException`, `ConflictException`,
-`ForbiddenException`, …).
-
-### `stat-svc`
-
-Сервис статистики, разбит на три Maven-модуля:
-
-- `stat-dto` — общие DTO между клиентом и сервером
-- `stat-client` — HTTP-клиент, используется из `ewm-main-svc`
-- `stats-server` (`:9090`) — REST-сервер
+- Java 21, Spring Boot 3.4.1 (Web, Data JPA, Validation, Actuator, Security, OAuth2 Resource Server)
+- PostgreSQL 16.1, H2 (для локальной разработки)
+- Hibernate 6, Spring Data JPA
+- Maven multi-module, Lombok
+- Keycloak 25 как Identity Provider
+- Docker Compose: 2 приложения + Keycloak + 2 БД с healthcheck'ами
+- Liquibase, springdoc-openapi 2.6
+- Тесты: JUnit 5, Mockito, Testcontainers, AssertJ
+- Качество: Checkstyle, SpotBugs, JaCoCo
+- CI: GitHub Actions
 
 ## Запуск
-
-### Docker Compose (рекомендуется)
 
 ```bash
 docker compose up --build
 ```
 
-- `ewm-service` — http://localhost:8080
-- `stats-server` — http://localhost:9090
-- `ewmdb` (Postgres) — `localhost:6542`
-- `statdb` (Postgres) — `localhost:6541`
+| Сервис | URL |
+|---|---|
+| ewm-main-svc | http://localhost:8080 |
+| stats-server | http://localhost:9090 |
+| Keycloak | http://localhost:8180 (admin/admin) |
+| Swagger UI | http://localhost:8080/swagger-ui.html |
+| Healthcheck | http://localhost:8080/actuator/health |
 
-### Локально с H2
+### Тестовые учётки в Keycloak
 
-```bash
-mvn clean install -DskipTests
-cd ewm-main-svc && mvn spring-boot:run -Dspring-boot.run.profiles=h2
-```
+| Логин | Пароль | Роли |
+|---|---|---|
+| user1 | password | USER |
+| admin1 | password | USER, ADMIN |
 
-### Health-check
-
-```
-GET /actuator/health
-```
+Realm: `ewm`, client: `ewm-client` (public, direct access grants).
 
 ## API
 
-Документация автогенерируется из кода через **springdoc-openapi**.
-После запуска контейнеров:
+Документация автогенерируется через **springdoc-openapi**:
+- Swagger UI: `/swagger-ui.html`
+- OpenAPI JSON: `/v3/api-docs`
 
-- `ewm-main-svc` — Swagger UI на `http://localhost:8080/swagger-ui.html`, OpenAPI JSON на `http://localhost:8080/v3/api-docs`
-- `stats-server` — Swagger UI на `http://localhost:9090/swagger-ui.html`, OpenAPI JSON на `http://localhost:9090/v3/api-docs`
+REST разделён на три уровня доступа по URL-префиксам:
+
+| Уровень | Префикс | Доступ |
+|---|---|---|
+| Public | `/events`, `/categories`, `/compilations` | без токена |
+| Private | `/users/{userId}/...` | JWT с ролью `USER` |
+| Admin | `/admin/...` | JWT с ролью `ADMIN` |
 
 ## Качество кода
 
@@ -104,10 +79,14 @@ mvn -P check verify        # Checkstyle + SpotBugs
 mvn -P coverage verify     # + JaCoCo report
 ```
 
+CI прогоняет полный билд + тесты на каждый push (`.github/workflows/build.yml`).
+
 ## Roadmap
 
-- [x] **Liquibase** вместо `schema.sql` — версионирование схемы
-- [x] **springdoc-openapi** — автогенерация OpenAPI и Swagger UI
-- [x] **`@Async`** для отправки хитов в `stats-server`, чтобы не блокировать hot path
-- [ ] **Spring Security + Keycloak**: OIDC, замена `userId` из URL на `@AuthenticationPrincipal`, роли `USER`/`ADMIN`
-- [ ] **Тесты**: JUnit 5 + Mockito (сервисы), `@WebMvcTest` (контроллеры), Testcontainers (интеграция)
+- [x] Liquibase, миграции схемы
+- [x] springdoc-openapi, автогенерация Swagger
+- [x] @Async для отправки stats
+- [x] Spring Security + Keycloak
+- [x] Тесты (unit + WebMvcTest + Testcontainers)
+- [x] CI на GitHub Actions
+
