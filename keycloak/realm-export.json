@@ -1,12 +1,12 @@
 {
-  "realm": "ewm",
+  "realm": "afisha",
   "enabled": true,
   "attributes": {
     "frontendUrl": "http://keycloak:8080"
   },
   "clients": [
     {
-      "clientId": "ewm-client",
+      "clientId": "afisha-client",
       "enabled": true,
       "publicClient": true,
       "directAccessGrantsEnabled": true,
@@ -22,7 +22,7 @@
   "users": [
     {
       "username": "user1",
-      "email": "user1@ewm.ru",
+      "email": "user1@afisha.ru",
       "firstName": "User",
       "lastName": "One",
       "enabled": true,
@@ -33,7 +33,7 @@
     },
     {
       "username": "admin1",
-      "email": "admin1@ewm.ru",
+      "email": "admin1@afisha.ru",
       "firstName": "Admin",
       "lastName": "One",
       "enabled": true,

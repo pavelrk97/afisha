@@ -10,15 +10,15 @@
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 
-	<name>Explore With Me</name>
+	<name>Afisha</name>
 
-	<groupId>ru.practicum</groupId>
-	<artifactId>explore-with-me</artifactId>
+	<groupId>com.afisha</groupId>
+	<artifactId>afisha</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<packaging>pom</packaging>
 
 	<modules>
-		<module>ewm-main-svc</module>
+		<module>main-svc</module>
 		<module>stat-svc</module>
 	</modules>
 
