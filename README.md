@@ -1,49 +1,49 @@
 # Afisha
 
-Сервис для поиска вечеринок, квартирников, джемов и других небольших местных
-тусовок. Пользователь заводит мероприятие, ищет что-то интересное рядом, оставляет
-заявку на участие и подписывается на организаторов.
+A service for finding parties, house concerts, jam sessions and other small local
+gigs. Users create events, browse what is happening nearby, request to join and
+follow the organizers they like.
 
-Приложение поделено на два сервиса. Основной, `main-svc`, держит всю бизнес-логику.
-Просмотры событий считает отдельный `stats-server`, к которому `main-svc` ходит
-через тонкий HTTP-клиент.
+The app is split into two services. The main one, `main-svc`, holds all the
+business logic. A separate `stats-server` counts event views, and `main-svc` talks
+to it through a thin HTTP client.
 
 [![Build](https://github.com/pavelrk97/afisha/actions/workflows/build.yml/badge.svg)](https://github.com/pavelrk97/afisha/actions)
 
-## Стек
+## Stack
 
 - Java 21, Spring Boot 3 (Web, Data JPA, Validation, Actuator, Security, OAuth2 Resource Server)
-- PostgreSQL 16, H2 для локального запуска
+- PostgreSQL 16, H2 for local runs
 - Spring Data JPA, Hibernate 6
-- Keycloak 25 как Identity Provider, JWT с ролями `USER` и `ADMIN`
-- Liquibase для миграций схемы
-- springdoc-openapi для Swagger UI
+- Keycloak 25 as the identity provider, JWT with `USER` and `ADMIN` roles
+- Liquibase for schema migrations
+- springdoc-openapi for Swagger UI
 - Maven (multi-module), Lombok
-- Docker Compose: два приложения, Keycloak и две базы с healthcheck
-- Тесты: JUnit 5, Mockito, Spring MVC Test, Testcontainers, AssertJ
-- Качество кода: Checkstyle, SpotBugs, JaCoCo
+- Docker Compose: two apps, Keycloak and two databases with healthchecks
+- Tests: JUnit 5, Mockito, Spring MVC Test, Testcontainers, AssertJ
+- Code quality: Checkstyle, SpotBugs, JaCoCo
 - CI: GitHub Actions
 
-## Как устроено
+## How it works
 
-На каждый публичный запрос `main-svc` шлёт хит в `stats-server`. Отправка идёт
-асинхронно, через `@Async` со своим пулом потоков, чтобы не тормозить основной
-запрос. Контракт DTO вынесен в общий модуль `stat-dto`, его используют и клиент,
-и сервер.
+On every public request `main-svc` sends a hit to `stats-server`. The call is
+asynchronous, via `@Async` with its own thread pool, so it does not slow down the
+main request. The DTO contract lives in a shared `stat-dto` module used by both the
+client and the server.
 
-Модули:
+Modules:
 
-- `main-svc` (порт 8080). REST поделён на три уровня доступа по префиксам URL.
-- `stat-svc` собирает статистику и состоит из трёх частей: `stat-dto` (общие DTO),
-  `stat-client` (HTTP-клиент для `main-svc`) и `stats-server` (порт 9090).
+- `main-svc` (port 8080). The REST API is split into three access levels by URL prefix.
+- `stat-svc` collects statistics and has three parts: `stat-dto` (shared DTOs),
+  `stat-client` (HTTP client for `main-svc`) and `stats-server` (port 9090).
 
-## Запуск
+## Run
 
 ```bash
 docker compose up --build
 ```
 
-| Сервис | URL |
+| Service | URL |
 |---|---|
 | main-svc | http://localhost:8080 |
 | stats-server | http://localhost:9090 |
@@ -51,9 +51,9 @@ docker compose up --build
 | Swagger UI | http://localhost:8080/swagger-ui.html |
 | Healthcheck | http://localhost:8080/actuator/health |
 
-### Тестовые учётки в Keycloak
+### Test accounts in Keycloak
 
-| Логин | Пароль | Роли |
+| Login | Password | Roles |
 |---|---|---|
 | user1 | password | USER |
 | admin1 | password | USER, ADMIN |
@@ -62,24 +62,24 @@ Realm: `afisha`, client: `afisha-client` (public, direct access grants).
 
 ## API
 
-Документация собирается через springdoc-openapi:
+Docs are generated with springdoc-openapi:
 
 - Swagger UI: `/swagger-ui.html`
 - OpenAPI JSON: `/v3/api-docs`
 
-Эндпоинты разнесены по трём уровням доступа:
+Endpoints are grouped into three access levels:
 
-| Уровень | Префикс | Доступ |
+| Level | Prefix | Access |
 |---|---|---|
-| Public | `/events`, `/categories`, `/compilations` | без токена |
-| Private | `/users/{userId}/...` | JWT с ролью `USER` |
-| Admin | `/admin/...` | JWT с ролью `ADMIN` |
+| Public | `/events`, `/categories`, `/compilations` | no token |
+| Private | `/users/{userId}/...` | JWT with `USER` role |
+| Admin | `/admin/...` | JWT with `ADMIN` role |
 
-## Качество кода
+## Code quality
 
 ```bash
 mvn -P check verify        # Checkstyle + SpotBugs
-mvn -P coverage verify     # плюс отчёт JaCoCo
+mvn -P coverage verify     # plus JaCoCo report
 ```
 
-Полный билд с тестами гоняется на каждый push (`.github/workflows/build.yml`).
+A full build with tests runs on every push (`.github/workflows/build.yml`).
